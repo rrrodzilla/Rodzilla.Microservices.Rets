@@ -175,13 +175,44 @@ module.exports = {
 	},
 	//	wordpress.rets.meta.primeMetaType
 	{
-		command: "wordpress.rets.meta.primeMetaType --resource Property --type Cities",
+		command: "wordpress.rets.meta.primeMetaType --resource Property --type City",
 		description: "Get City property metadata",
 		alias: "cities",
 		allowUnknownOptions: false,
 		action(broker, args/*, helpers*/) {
 			const limitVal = args.limit ? args.limit : 1;
-			return broker.call("wordpress.rets.meta.primeMetaType", { resource: "Property", type: "City" });
+			return broker.call("wordpress.rets.meta.primeMetaTypeAsCsv", { resource: "Property", type: "City" });
+		}
+	},
+	//	wordpress.rets.meta.primeMetaType
+	{
+		command: "wordpress.rets.meta.primeCities",
+		description: "Get City property metadata and then load it in wordpress database",
+		alias: "primeCities",
+		allowUnknownOptions: false,
+		action(broker, args/*, helpers*/) {
+			return broker.call("wordpress.rets.meta.primeCities");
+		}
+	},
+	//	wordpress.rets.meta.primeMetaType
+	{
+		command: "wordpress.rets.meta.primeStates",
+		description: "Get State property metadata and then load it in wordpress database",
+		alias: "primeStates",
+		allowUnknownOptions: false,
+		action(broker, args/*, helpers*/) {
+			return broker.call("wordpress.rets.meta.primeStates");
+		}
+	},
+	//	wordpress.rets.meta.primeMetaType
+	{
+		command: "wordpress.rets.meta.fetchPropertyTypes",
+		description: "Get metadata types",
+		alias: "fetchTypes",
+		allowUnknownOptions: false,
+		action(broker, args/*, helpers*/) {
+			const limitVal = args.limit ? args.limit : 1;
+			return broker.call("wordpress.rets.meta.fetchPropertyTypes");
 		}
 	},
 	]

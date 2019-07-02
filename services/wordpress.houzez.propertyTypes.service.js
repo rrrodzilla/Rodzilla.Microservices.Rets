@@ -44,6 +44,7 @@ module.exports = {
                     }
                     return type;
                 } else {
+                    await this.loadpropertyTypes();
                     return this.propertyTypes;
                 }
             }
@@ -65,20 +66,23 @@ module.exports = {
 	 */
     methods: {
         loadpropertyTypes() {
-            this.connection.connect();
+
+            if (this.connection.state === "disconnected") {
+                this.connection.connect();
+            }
 
             let ctx = this;
 
-            this.connection.query("SELECT t1.term_id, t1.name, t1.slug  FROM wp_terms AS t1 INNER JOIN wp_term_taxonomy AS t2 ON t1.term_id = t2.term_id WHERE t2.taxonomy = 'property_type'", async function (error, results, fields) {
+            this.connection.query("SELECT t1.term_id, t1.name, t1.slug  FROM wp_terms AS t1 INNER JOIN wp_term_taxonomy AS t2 ON t1.term_id = t2.term_id WHERE t2.taxonomy = 'property_type'", function (error, results, fields) {
                 if (error) throw error;
+                ctx.propertyTypes = new Array();
                 results.forEach(element => {
                     let item = { id: element.term_id, name: element.name, slug: element.slug };
                     ctx.propertyTypes.push(item);
                 });
-                await ctx.broker.emit("wordpress.houzez.propertyTypes.loaded");
+                ctx.broker.emit("wordpress.houzez.propertyTypes.loaded");
             });
 
-            this.connection.end();
         }
     },
 
@@ -113,6 +117,7 @@ module.exports = {
 	 * Service stopped lifecycle event handler
 	 */
     stopped() {
+        this.connection.end();
         this.connection = null;
     }
 };

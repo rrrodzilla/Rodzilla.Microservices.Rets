@@ -22,17 +22,23 @@ module.exports = {
 	/**
 	 * Service dependencies
 	 */
-    dependencies: [],
+    dependencies: ["wordpress.houzez.states"],
 
 	/**
 	 * Actions
 	 */
     actions: {
         fetch: {
-            cache: true,
-            params: { name: { type: 'string', required: true } },
+            cache: false,
+            params: { name: { type: 'string', optional: true } },
             async handler(ctx) {
-                return this.propertyCities.find(item => item.name == ctx.params.name);
+                if (ctx.params.name) {
+                    return this.propertyCities.find(item => item.name == ctx.params.name);
+                } else {
+                    await this.loadPropertyCities();
+                    return this.propertyCities;
+
+                }
             }
         }
     },
@@ -52,19 +58,22 @@ module.exports = {
 	 * Methods
 	 */
     methods: {
-        loadPropertyCities() {
-            this.connection.connect();
+        async loadPropertyCities() {
+
+            if (this.connection.state === "disconnected") {
+                this.connection.connect();
+            }
             let ctx = this;
-            this.connection.query("SELECT t1.term_id, t1.name, t1.slug  FROM wp_terms AS t1 INNER JOIN wp_term_taxonomy AS t2 ON t1.term_id = t2.term_id WHERE t2.taxonomy = 'property_city'", async function (error, results, fields) {
+            this.connection.query("SELECT t1.term_id, t1.name, t1.slug  FROM wp_terms AS t1 INNER JOIN wp_term_taxonomy AS t2 ON t1.term_id = t2.term_id WHERE t2.taxonomy = 'property_city'", function (error, results, fields) {
                 if (error) throw error;
+                ctx.propertyCities = new Array();
                 results.forEach(element => {
                     let city = { id: element.term_id, name: element.name, slug: element.slug };
                     ctx.propertyCities.push(city);
                 });
-                await ctx.broker.emit("wordpress.houzez.cities.loaded");
+                ctx.broker.emit("wordpress.houzez.cities.loaded");
             });
 
-            this.connection.end();
 
         }
     },
@@ -101,6 +110,7 @@ module.exports = {
 	 * Service stopped lifecycle event handler
 	 */
     stopped() {
+        this.connection.end();
         this.connection = null;
     }
 };

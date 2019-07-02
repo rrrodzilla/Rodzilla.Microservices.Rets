@@ -29,15 +29,19 @@ module.exports = {
 	 */
     actions: {
         fetch: {
-            params: { name: { type: 'string', required: true } },
-            cache:true,
+            cache: false,
+            params: {
+                name: { type: 'string', optional: true },
+                parent: { type: 'number', optional: true }
+            },
             async handler(ctx) {
-                let name = ctx.params.name.toLowerCase().replace(/ /g, "");
+                if (ctx.params.name) {
+                    return this.propertyCounties.find(item => item.name.toLowerCase().replace(/ /g, "") == ctx.params.name);
+                } else {
+                    await this.loadPropertyCounties(ctx.params.parent);
+                    return this.propertyCounties;
 
-
-                if (!this.propertyCounties.length) await this.loadPropertyCounties();
-
-                return this.propertyCounties.find(item => item.name.toLowerCase().replace(/ /g, "") == name);
+                }
             }
         }
     },
@@ -56,26 +60,23 @@ module.exports = {
 	 * Methods
 	 */
     methods: {
-        loadPropertyCounties() {
-
+        async loadPropertyCounties(parentId) {
             let ctx = this;
-
-            this.broker.call("wordpress.houzez.states.fetch", { name: 'Texas' }).then(async (state) => {
-                if (state) {
-                    this.connection.connect();
-                    this.connection.query(`SELECT t1.term_id, t1.name, t1.slug  FROM wp_terms AS t1 INNER JOIN wp_term_taxonomy AS t2 ON t1.term_id = t2.term_id WHERE t2.parent = ${state.id} and t2.taxonomy = 'property_state'`, async function (error, results, fields) {
-                        if (error) throw error;
-                        results.forEach(element => {
-                            let county = { id: element.term_id, name: element.name, slug: element.slug };
-                            //get rid of bad counties
-                            if ((county.slug !== 'other') && (county.slug !== 'unknown')) {
-                                ctx.propertyCounties.push(county);
-                            }
-                        });
-                        await ctx.broker.emit("wordpress.houzez.counties.loaded");
-                    });
-                    this.connection.end();
-                }
+            if (this.connection.state === "disconnected") {
+                this.connection.connect();
+            }
+            this.connection.query(`SELECT t1.term_id, t1.name, t1.slug  FROM wp_terms AS t1 INNER JOIN wp_term_taxonomy AS t2 ON t1.term_id = t2.term_id WHERE t2.parent = ${parentId} and t2.taxonomy = 'property_state'`, function (error, results, fields) {
+                if (error) throw error;
+                ctx.propertyCounties = new Array();
+                // ctx.logger.info(results);
+                results.forEach(element => {
+                    let county = { id: element.term_id, name: element.name, slug: element.slug };
+                    //get rid of bad counties
+                    if ((county.slug.toLowerCase() !== 'other') && (county.slug.toLowerCase() !== 'unknown')) {
+                        ctx.propertyCounties.push(county);
+                    }
+                });
+                ctx.broker.emit("wordpress.houzez.counties.loaded");
             });
         },
     },
@@ -102,15 +103,21 @@ module.exports = {
             password: process.env.WordpressSqlPassword,
             database: process.env.WordpressSqlDatabase
         });
-        this.propertyCounties = new Array();
         this.logger.warn("Loading counties for state...");
-        this.loadPropertyCounties();
+        let parent = await this.broker.call("wordpress.houzez.states.fetch", { name: "TX" });
+        if (parent) {
+            this.logger.warn(`State (parent) ID: ${parent.id}`);
+            this.loadPropertyCounties(parent.id);
+        } else {
+            this.logger.warn("Could not load counties due to no state id");
+        }
     },
 
 	/**
 	 * Service stopped lifecycle event handler
 	 */
     stopped() {
+        this.connection.end();
         this.connection = null;
     }
 };
