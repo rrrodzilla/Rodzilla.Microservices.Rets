@@ -1,0 +1,54 @@
+{
+  "name": "rodzilla-real-estate",
+  "version": "1.0.0",
+  "description": "RETS Wordpress Ingestor Service for Real Estate",
+  "scripts": {
+    "dev": "moleculer-runner --repl --hot services --envfile dev.env",
+    "start": "moleculer-runner",
+    "cli": "moleculer connect NATS",
+    "ci": "jest --watch",
+    "test": "jest --coverage",
+    "lint": "eslint services",
+    "dc:up": "docker-compose up --build -d",
+    "dc:down": "docker-compose down"
+  },
+  "keywords": [
+    "microservices",
+    "moleculer"
+  ],
+  "author": "",
+  "devDependencies": {
+    "eslint": "^5.10.0",
+    "jest": "^23.6.0",
+    "jest-cli": "^23.6.0",
+    "moleculer-repl": "^0.5.3"
+  },
+  "dependencies": {
+    "@google/maps": "^0.5.5",
+    "@hapi/joi": "^15.1.0",
+    "JSONStream": "^1.3.5",
+    "dotenv": "^8.0.0",
+    "event-stream": "^4.0.1",
+    "json2csv": "^4.5.1",
+    "moleculer": "^0.13.0",
+    "moleculer-web": "^0.8.0",
+    "moment": "^2.24.0",
+    "mysql": "^2.17.1",
+    "nats": "^1.3.0",
+    "rets-client": "^5.2.3",
+    "superagent": "^5.1.0",
+    "through2": "^3.0.1",
+    "wpapi": "^1.2.1"
+  },
+  "engines": {
+    "node": ">= 8.x.x"
+  },
+  "jest": {
+    "coverageDirectory": "../coverage",
+    "testEnvironment": "node",
+    "rootDir": "./services",
+    "roots": [
+      "../test"
+    ]
+  }
+}
