@@ -25,6 +25,7 @@ module.exports = {
 
 	/**
 	 * Actions
+     * Note: To do a year long bulk insert (roughly 3-4k properties and associated images and meta data) you must increase the max_allowed_packet size to 1073741824
 	 */
     actions: {
         fetch: {
@@ -32,6 +33,7 @@ module.exports = {
                 limit: { type: "number", integer: true, positive: true, optional: true },
                 lc: { type: "string", optional: true },
                 ia: { type: "boolean", optional: true },
+                silent: { type: "boolean", optional: true },
                 ma: { type: "number", integer: true, positive: true, optional: true },
                 se: { type: "boolean", optional: true }
             },
@@ -45,11 +47,12 @@ module.exports = {
                 await this.login(ctx);
                 let postId = await this.getMaxPostId();
                 let postMetaId = await this.getMaxPostMetaId();
-                // this.logger.info("Starting Post Id: " + postId);
                 let toTitleCase = this.toTitleCase;
                 let context = ctx;
                 let validCounter = 0;
+                let totalCounter = 0;
                 this.limit = (ctx.params.limit) ? ctx.params.limit : 50;
+                this.silent = ctx.params.silent;
 
                 this.minutesAgo = (ctx.params.ma) ? ctx.params.ma : 15;
                 let minutesAgo = moment().subtract(this.minutesAgo, "minutes");
@@ -97,7 +100,7 @@ module.exports = {
                         callback(null, property);
                     } else {
                         //emit an invalid geo event
-                        process.stdout.write('\x1b[33m.\x1b[0m');
+                        if (!this.silent) { process.stdout.write('\x1b[33m.\x1b[0m'); }
                         callback(null, null);
                         // context.broker.logger.warn("BAD GEO: " + property.FullAddress);
                     }
@@ -105,26 +108,27 @@ module.exports = {
 
 
                 const determineIdsStream = through2.obj(async (property, encoding, callback) => {
-                    property.postId = postId++;
-                    property.postMetaStateId = postMetaId++;
-                    property.postMetaCountyId = postMetaId++;
-                    property.postMetaPropertyTypeId = postMetaId++;
-                    property.postMetaIdFavePropertyMap = postMetaId++;
-                    property.postMetaIdFavePropertyMapStreetView = postMetaId++;
-                    property.postMetaIdFavePropertyId = postMetaId++;
-                    property.postGeoLocationLongId = postMetaId++;
-                    property.postGeoLocationLatId = postMetaId++;
-                    property.postMetaFavePropertyLocationId = postMetaId++;
-                    property.postMetaFavePropertyZipId = postMetaId++;
-                    property.postMetaFavePropertyAddressId = postMetaId++;
-                    property.postMetaFavePropertyMapAddressId = postMetaId++;
-                    property.postMetaFavePropertyYearId = postMetaId++;
-                    property.postMetaFavePropertyGarageId = postMetaId++;
-                    property.postMetaFavePropertyBathroomsId = postMetaId++;
-                    property.postMetaFavePropertyBedroomsId = postMetaId++;
-                    property.postMetaFavePropertySizePrefixId = postMetaId++;
-                    property.postMetaFavePropertySizeId = postMetaId++;
-                    property.postMetaFavePropertyPriceId = postMetaId++;
+                    property.postId = ++postId;
+                    // this.logger.info("Starting Post Id: " + property.postId);
+                    property.postMetaStateId = ++postMetaId;
+                    property.postMetaCountyId = ++postMetaId;
+                    property.postMetaPropertyTypeId = ++postMetaId;
+                    property.postMetaIdFavePropertyMap = ++postMetaId;
+                    property.postMetaIdFavePropertyMapStreetView = ++postMetaId;
+                    property.postMetaIdFavePropertyId = ++postMetaId;
+                    property.postGeoLocationLongId = ++postMetaId;
+                    property.postGeoLocationLatId = ++postMetaId;
+                    property.postMetaFavePropertyLocationId = ++postMetaId;
+                    property.postMetaFavePropertyZipId = ++postMetaId;
+                    property.postMetaFavePropertyAddressId = ++postMetaId;
+                    property.postMetaFavePropertyMapAddressId = ++postMetaId;
+                    property.postMetaFavePropertyYearId = ++postMetaId;
+                    property.postMetaFavePropertyGarageId = ++postMetaId;
+                    property.postMetaFavePropertyBathroomsId = ++postMetaId;
+                    property.postMetaFavePropertyBedroomsId = ++postMetaId;
+                    property.postMetaFavePropertySizePrefixId = ++postMetaId;
+                    property.postMetaFavePropertySizeId = ++postMetaId;
+                    property.postMetaFavePropertyPriceId = ++postMetaId;
                     callback(null, property);
                 });
 
@@ -143,6 +147,7 @@ module.exports = {
 
                     if (event.type === "data") {
                         let property = event.payload;
+                        totalCounter++;
                         property.FullAddress = [property.StreetNumber.trim(), property.StreetDirPrefix.trim().toUpperCase(), toTitleCase(property.StreetName.trim()), toTitleCase(property.StreetSuffix.trim()), toTitleCase(property.City.trim()), property.StateOrProvince.trim().toUpperCase(), property.PostalCode.trim()].filter(Boolean).join(" ");
                         const schema = Joi.object().keys({
                             StreetNumber: Joi.number().min(1).required(),
@@ -162,7 +167,7 @@ module.exports = {
                             callback(null, property);
                             return;
                         } else {
-                            process.stdout.write('\x1b[31m.\x1b[0m');
+                            if (!this.silent) { process.stdout.write('\x1b[31m.\x1b[0m'); }
                         }
 
                     }
@@ -172,21 +177,39 @@ module.exports = {
                 // buncha meta
                 const determineStateStream = through2.obj(async (property, encoding, callback) => {
                     const state = await this.broker.call("wordpress.houzez.states.fetch", { name: property.StateOrProvince });
-                    postMetaSql += `(${property.postMetaStateId}, ${property.postId}, 'property_state', ${state.id}),`;
-                    termRelationshipsSql += `(${property.postId}, ${state.id}),`;
-                    property.metaStateId = state.id;
-                    callback(null, property);
+                    if (typeof state !== 'undefined' && state) {
+                        postMetaSql += `(${property.postMetaStateId}, ${property.postId}, 'property_state', ${state.id}),`;
+                        termRelationshipsSql += `(${property.postId}, ${state.id}),`;
+                        property.metaStateId = state.id;
+                        callback(null, property);
+                    } else {
+                        //get rid of this property
+                        if (!this.silent) { process.stdout.write('\x1b[31m.\x1b[0m'); }
+                        callback(null, null);
+                    }
                 });
                 const determineCountyStream = through2.obj(async (property, encoding, callback) => {
                     const county = await this.broker.call("wordpress.houzez.counties.fetch", { name: property.CountyOrParish });
-                    postMetaSql += `(${property.postMetaCountyId}, ${property.postId}, 'property_state', ${county.id}),`;
-                    termRelationshipsSql += `(${property.postId}, ${county.id}),`;
-                    callback(null, property);
+                    if (typeof county !== 'undefined' && county) {
+                        postMetaSql += `(${property.postMetaCountyId}, ${property.postId}, 'property_state', ${county.id}),`;
+                        termRelationshipsSql += `(${property.postId}, ${county.id}),`;
+                        callback(null, property);
+                    } else {
+                        //get rid of this property
+                        if (!this.silent) { process.stdout.write('\x1b[31m.\x1b[0m'); }
+                        callback(null, null);
+                    }
                 });
                 const determinePropertyTypeStream = through2.obj(async (property, encoding, callback) => {
                     const propertyType = await this.broker.call("wordpress.houzez.propertyTypes.fetch", { name: property.PropertyType });
-                    postMetaSql += `(${property.postMetaPropertyTypeId}, ${property.postId}, 'property_type', ${propertyType.id}),`;
-                    callback(null, property);
+                    if (typeof propertyType !== 'undefined' && propertyType) {
+                        postMetaSql += `(${property.postMetaPropertyTypeId}, ${property.postId}, 'property_type', ${propertyType.id}),`;
+                        callback(null, property);
+                    } else {
+                        //get rid of this property
+                        if (!this.silent) { process.stdout.write('\x1b[31m.\x1b[0m'); }
+                        callback(null, null);
+                    }
                 });
                 const favePropertyMapStream = through2.obj(async (property, encoding, callback) => {
                     postMetaSql += `(${property.postMetaIdFavePropertyMap}, ${property.postId}, 'fave_property_map', 1),`;
@@ -217,11 +240,11 @@ module.exports = {
                     callback(null, property);
                 });
                 const FavePropertyAddressStream = through2.obj(async (property, encoding, callback) => {
-                    postMetaSql += `(${property.postMetaFavePropertyAddressId}, ${property.postId}, 'fave_property_address', '${property.streetAddress}'),`;
+                    postMetaSql += `(${property.postMetaFavePropertyAddressId}, ${property.postId}, 'fave_property_address', ${mysql.escape(property.streetAddress)}),`;
                     callback(null, property);
                 });
                 const FavePropertyMapAddressStream = through2.obj(async (property, encoding, callback) => {
-                    postMetaSql += `(${property.postMetaFavePropertyMapAddressId}, ${property.postId}, 'fave_property_map_address', '${property.FullAddress}'),`;
+                    postMetaSql += `(${property.postMetaFavePropertyMapAddressId}, ${property.postId}, 'fave_property_map_address', ${mysql.escape(property.FullAddress)}),`;
                     callback(null, property);
                 });
                 const FavePropertyYearStream = through2.obj(async (property, encoding, callback) => {
@@ -253,7 +276,7 @@ module.exports = {
                     callback(null, property);
                 });
                 const GeneratePropertyPostStream = through2.obj(async (property, encoding, callback) => {
-                    postSql += `(${property.postId}, 1,'${date}', '${utcDate}', '${property.PublicRemarks}', '${property.streetAddress}', '', 'draft', 'closed','closed', '${property.MLSNumber}','', '', '${date}', '${utcDate}', 0, 'https://www.ccpowerhouseproperties.com/?post_type=property&p=${postId}', 'property', ''),`;
+                    postSql += `(${property.postId}, 1,'${date}', '${utcDate}', ${mysql.escape(property.PublicRemarks)}, ${mysql.escape(property.streetAddress)}, '', 'draft', 'closed','closed', '${property.MLSNumber}','', '', '${date}', '${utcDate}', '', 0, 'https://www.ccpowerhouseproperties.com/?post_type=property&p=${postId}', 'property', ''),`;
                     callback(null, property);
                 });
                 const GeneratePropertyImagePostsStream = through2.obj(async (property, encoding, callback) => {
@@ -261,14 +284,14 @@ module.exports = {
                         // here we want to generate posts for each image with an assumed name and location
                         // the images will be uploaded seperately to blob storage
                         postId++;
-                        postSql += `(${postId}, 1,'${date}', '${utcDate}', '${property.PublicRemarks}', '${property.streetAddress}', '', 'inherit', 'closed','closed', '${property.MLSNumber}','', '', '${date}', '${utcDate}', 0, 'https://gchs.org/wp-content/uploads/Image-Coming-Soon-Placeholder.png', 'attachment', 'image/jpeg'),`;
+                        postSql += `(${postId}, 1,'${date}', '${utcDate}', ${mysql.escape(property.PublicRemarks)}, ${mysql.escape(property.streetAddress)}, '', 'inherit', 'closed','closed', '${property.MLSNumber}','', '', '${date}', '${utcDate}', '', 0, 'https://gchs.org/wp-content/uploads/Image-Coming-Soon-Placeholder.png', 'attachment', 'image/jpeg'),`;
                         // is this the first image?  If so, it's our thumbnail
                         if (index === 0) {
-                            postMetaId++;
+                            ++postMetaId;
                             postMetaSql += `(${postMetaId}, ${property.postId}, '_thumbnail_id', '${postId}'),`;
                         }
 
-                        postMetaId++;
+                        ++postMetaId;
                         postMetaSql += `(${postMetaId}, ${property.postId}, 'fave_property_images', '${postId}'),`;
                         //now associate the image to the property post
                     }
@@ -276,12 +299,11 @@ module.exports = {
                 });
 
 
-                let postSql = "INSERT INTO wp_posts (ID, post_author, post_date, post_date_gmt, post_content, post_title, post_excerpt, post_status, comment_status, ping_status, post_name,to_ping, pinged, post_modified, post_modified_gmt, post_parent, guid, post_type, post_mime_type) VALUES ";
+                let postSql = "INSERT INTO wp_posts (ID, post_author, post_date, post_date_gmt, post_content, post_title, post_excerpt, post_status, comment_status, ping_status, post_name,to_ping, pinged, post_modified, post_modified_gmt, post_content_filtered, post_parent, guid, post_type, post_mime_type) VALUES ";
                 let postMetaSql = "INSERT INTO wp_postmeta (meta_id, post_id, meta_key, meta_value) VALUES ";
                 let termRelationshipsSql = "INSERT INTO wp_term_relationships (object_id, term_taxonomy_id) VALUES ";
-                // TODO: Gotta figure out how to make these valid dates for mysql
-                const date = moment().unix();
-                const utcDate = moment().utc().unix();
+                const date = moment().format("YYYY-MM-DD hh:mm:ss");
+                const utcDate = moment().utc().format("YYYY-MM-DD hh:mm:ss");
 
                 return new Promise((resolve, reject) => {
                     const searchResults = this.retsClient.search.stream.query("Property", "Listing", `(LastChangeTimestamp=${this.lastChangeTimeStamp}+),(PropertyType=RES,MUL,LOT,FRM,COM),(Status=A)`, { offset: ctx.service.offset, limit: ctx.service.limit, select: "PhotoCount,Matrix_Unique_ID,PropertyType,ListPrice,SqFtTotal,LotSize,BedsTotal,BathsTotal,GarageSpaces,YearBuilt,MLSNumber,City,CountyOrParish,StreetNumber,StreetDirPrefix,StreetName,StreetSuffix,PostalCode,StateOrProvince,Style,PublicRemarks" });
@@ -313,15 +335,18 @@ module.exports = {
                         .pipe(FavePropertyPriceStream)
                         .on('data', (property) => {
                             validCounter++;
-                            process.stdout.write('\x1b[32m.\x1b[0m');
-                            // console.log(property);
+                            if (!this.silent) { process.stdout.write('\x1b[32m.\x1b[0m'); }
+                            // // if(property.FullAddress.includes("s End St Rockport TX 78382")){
+                            //     console.log(property.MapCoordinates);
+                            // // }
                         })
                         .on('finish', async () => {
-                            process.stdout.write("Done!");
+                            if (!this.silent) { process.stdout.write("Done!"); }
                             console.log();
-                            context.broker.logger.info(`Recieved ${validCounter} valid properties from ${this.limit} received.`)
-                            // context.broker.logger.info(postSql.slice(0, -1));
-                            await this.uploadProperties(context, postSql);
+                            context.broker.logger.info(`Recieved ${validCounter} valid properties from ${totalCounter} received.`)
+
+                            await this.bulkUpsert(context, postSql, postMetaSql, termRelationshipsSql);
+
                         });
 
                     resolve('');
@@ -341,21 +366,83 @@ module.exports = {
 	 * Methods
 	 */
     methods: {
-        async uploadProperties(ctx, postSql) {
+        async bulkUpsert(ctx, rawPostSql, rawPostMetaSql, rawTermRelationshipSql) {
             let context = ctx;
-            this.logger.info("Bulk uploading properties...");
-            let sql = postSql.slice(0, -1);
+            this.logger.info(`Bulk uploading properties, images, meta and relationship data...`);
+            let postSql = rawPostSql.slice(0, -1);
+            let postMetaSql = rawPostMetaSql.slice(0, -1);
+            let termSql = rawTermRelationshipSql.slice(0, -1);
+
             return new Promise((resolve, reject) => {
-                // this.pool.query(sql, async function (error, results, fields) {
-                //     if (error) {
-                //         context.broker.logger.error(`Error bulk uploading properties: ${error}`);
-                //         reject(error);
-                //     };
-                //     context.broker.logger.info("Done!");
-                //     resolve();
-                // });
-                context.broker.logger.info("Done!");
-                resolve();
+                this.pool.getConnection((err, connection) => {
+                    let temp_connection = connection;
+                    temp_connection.beginTransaction((err) => {
+                        if (err) reject(err);
+
+
+                        temp_connection.query(postSql, async function (error, results, fields) {
+                            if (error) {
+                                context.broker.logger.error(`Error bulk uploading properties and images: ${error}`);
+                                temp_connection.rollback(() => {
+                                    temp_connection.release();
+                                    context.broker.logger.warn(`Upserts rolled back`);
+                                    resolve(error);
+                                })
+                            } else {
+                                context.broker.logger.info(`Attempting to upsert ${results.affectedRows} properties and images`);
+                                context.broker.logger.info("Done!");
+
+                                temp_connection.query(postMetaSql, async function (error, results, fields) {
+                                    if (error) {
+                                        context.broker.logger.error(`Error bulk uploading property meta data: ${error}`);
+                                        temp_connection.rollback(() => {
+                                            temp_connection.release();
+                                            context.broker.logger.warn(`Upserts rolled back`);
+                                            resolve(error);
+                                        })
+                                    } else {
+                                        context.broker.logger.info(`Attempting to upsert ${results.affectedRows} property meta data items`);
+                                        context.broker.logger.info("Done!");
+
+                                        temp_connection.query(termSql, async function (error, results, fields) {
+                                            if (error) {
+                                                context.broker.logger.error(`Error bulk uploading term relationship data: ${error}`);
+                                                temp_connection.rollback(() => {
+                                                    temp_connection.release();
+                                                    context.broker.logger.warn(`Upserts rolled back`);
+                                                    resolve(error);
+                                                })
+                                            } else {
+                                                context.broker.logger.info(`Attempting to upsert ${results.affectedRows} term relationships data items`);
+                                                context.broker.logger.info("Done!");
+
+                                                temp_connection.commit((err) => {
+                                                    if (err) {
+                                                        temp_connection.rollback(() => {
+                                                            temp_connection.release();
+                                                            context.broker.logger.info(`Upserts rolled back`);
+                                                            resolve(error);
+                                                        });
+                                                    } else {
+                                                        context.broker.logger.info(`Upserts committed`);
+                                                        temp_connection.release();
+                                                        resolve();
+                                                    }
+                                                });
+                                            }
+                                        });
+                                    }
+                                });
+
+                            }
+
+
+                        });
+
+                    });
+
+                });
+
             });
 
         },
