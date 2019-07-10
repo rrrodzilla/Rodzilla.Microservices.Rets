@@ -158,8 +158,8 @@ module.exports = {
 
 	// Register custom REPL commands.
 	replCommands: [{
-		command: "rets.fetchListings --lc 2019-06-02 --limit <limit>",
-		description: "Fetch n listings from RETS",
+		command: "wordpress.rets.properties.fetch--lc 2019-06-02 --limit <limit>",
+		description: "Fetch and stream n listings from RETS",
 		alias: "fetch",
 		types: {
 			string: ["limit"]
@@ -170,7 +170,7 @@ module.exports = {
 		allowUnknownOptions: true,
 		action(broker, args/*, helpers*/) {
 			const limitVal = args.limit ? args.limit : 1;
-			return broker.call("rets.fetchListings", { limit: limitVal, lc: "2019-06-02" }).then(console.log);
+			return broker.call("wordpress.rets.properties.fetch", { limit: limitVal, lc: "2019-04-02" }).then(console.log);
 		}
 	},
 	//	wordpress.rets.meta.primeMetaType

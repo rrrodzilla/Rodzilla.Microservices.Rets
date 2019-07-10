@@ -67,14 +67,17 @@ module.exports = {
                             this.bulkInsertTermTaxonomy(items, 0, "property_state", "STATE");
                         }).then(async () => {
                             const texas = await this.broker.call("wordpress.houzez.states.fetch", { name: 'TX' });
-                            this.logger.info("Loading cities for Texas...");
-                            await this.actions.primeCities({ parent: texas.id }).then(async () => {
-                                this.logger.info(`Loading counties for Texas id ${texas.id}...`);
-                                await this.actions.primeCounties({ parent: texas.id }).then(async () => {
-                                    this.logger.info("Loading property types...");
-                                    await this.actions.primePropertyTypes();
+                            if (texas) {
+
+                                this.logger.info("Loading cities for Texas...");
+                                await this.actions.primeCities({ parent: texas.id }).then(async () => {
+                                    this.logger.info(`Loading counties for Texas id ${texas.id}...`);
+                                    await this.actions.primeCounties({ parent: texas.id }).then(async () => {
+                                        this.logger.info("Loading property types...");
+                                        await this.actions.primePropertyTypes();
+                                    });
                                 });
-                            });
+                            }
                         });
 
                     })
@@ -301,9 +304,9 @@ module.exports = {
                         }
                         this.logger.warn(`${type}: Deleted ${results.affectedRows} rows from wp_term_taxonomy`);
                     });
-                    
+
             } catch (error) {
-                this.logger.error(`Failed delete terms for type ${type}`);                
+                this.logger.error(`Failed delete terms for type ${type}`);
             }
         },
         async bulkInsertTerms(items, type) {

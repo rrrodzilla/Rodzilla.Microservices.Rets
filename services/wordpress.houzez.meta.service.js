@@ -4,8 +4,6 @@ const dotenv = require('dotenv');
 const Joi = require('@hapi/joi');
 const { MoleculerError } = require("moleculer").Errors;
 const moment = require('moment');
-var WPAPI = require('wpapi');
-var apiRootJSON = require('./wordpress.discovery.json');
 
 const mysql = require('mysql');
 
@@ -167,11 +165,6 @@ module.exports = {
 	 * Service created lifecycle event handler
 	 */
     created() {
-        this.wp = new WPAPI({
-            endpoint: process.env.WordpressUrl, routes: apiRootJSON.routes,
-            username: process.env.WordpressUsername,
-            password: process.env.WordpressPassword
-        });
 
     },
 

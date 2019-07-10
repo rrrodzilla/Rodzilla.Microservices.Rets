@@ -4,8 +4,6 @@ const dotenv = require('dotenv');
 const Joi = require('@hapi/joi');
 const { MoleculerError } = require("moleculer").Errors;
 const moment = require('moment');
-var WPAPI = require('wpapi');
-var apiRootJSON = require('./wordpress.discovery.json');
 
 const mysql = require('mysql');
 
@@ -29,14 +27,14 @@ module.exports = {
 	 */
     actions: {
         fetch: {
-            cache: false,
+            cache: true,
             params: {
                 name: { type: 'string', optional: true },
                 parent: { type: 'number', optional: true }
             },
             async handler(ctx) {
                 if (ctx.params.name) {
-                    return this.propertyCounties.find(item => item.name.toLowerCase().replace(/ /g, "") == ctx.params.name);
+                    return this.propertyCounties.find(item => item.name.toLowerCase().replace(/ /g, "") == ctx.params.name.toLowerCase().replace(/ /g, ""));
                 } else {
                     await this.loadPropertyCounties(ctx.params.parent);
                     return this.propertyCounties;
@@ -60,7 +58,7 @@ module.exports = {
 	 * Methods
 	 */
     methods: {
-        async loadPropertyCounties(parentId) {
+        loadPropertyCounties(parentId) {
             let ctx = this;
             if (this.connection.state === "disconnected") {
                 this.connection.connect();
@@ -92,11 +90,6 @@ module.exports = {
 	 * Service started lifecycle event handler
 	 */
     async started() {
-        this.wp = new WPAPI({
-            endpoint: process.env.WordpressUrl, routes: apiRootJSON.routes,
-            username: process.env.WordpressUsername,
-            password: process.env.WordpressPassword
-        });
         this.connection = mysql.createConnection({
             host: process.env.WordpressSqlHost,
             user: process.env.WordpressSqlUser,
