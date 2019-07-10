@@ -45,7 +45,7 @@ module.exports = {
                 await this.login(ctx);
                 let postId = await this.getMaxPostId();
                 let postMetaId = await this.getMaxPostMetaId();
-                this.logger.info("Starting Post Id: " + postId);
+                // this.logger.info("Starting Post Id: " + postId);
                 let toTitleCase = this.toTitleCase;
                 let context = ctx;
                 let validCounter = 0;
@@ -55,7 +55,6 @@ module.exports = {
                 let minutesAgo = moment().subtract(this.minutesAgo, "minutes");
                 this.lastChangeTimeStamp = (!ctx.params.lc) ? minutesAgo.toISOString() : moment(ctx.params.lc).toISOString();
 
-                // context.broker.logger.info(`Current Time: ${moment().toISOString()}`);
                 context.broker.logger.info(`Searching for active properties from ${moment(this.lastChangeTimeStamp).fromNow()} in batches of ${this.limit}`);
 
                 const googleGeoValidationStream = through2.obj(async (property, encoding, callback) => {
@@ -210,52 +209,74 @@ module.exports = {
                     callback(null, property);
                 });
                 const FavePropertyLocationStream = through2.obj(async (property, encoding, callback) => {
-                    postMetaSql += `(${property.postMetaFavePropertyLocationId  }, ${property.postId}, 'fave_property_location', '${property.houzez_geolocation_lat}, ${property.houzez_geolocation_long}'),`;
+                    postMetaSql += `(${property.postMetaFavePropertyLocationId}, ${property.postId}, 'fave_property_location', '${property.houzez_geolocation_lat}, ${property.houzez_geolocation_long}'),`;
                     callback(null, property);
                 });
                 const FavePropertyZipStream = through2.obj(async (property, encoding, callback) => {
-                    postMetaSql += `(${property.postMetaFavePropertyZipId  }, ${property.postId}, 'fave_property_zip', '${property.PostalCode}'),`;
+                    postMetaSql += `(${property.postMetaFavePropertyZipId}, ${property.postId}, 'fave_property_zip', '${property.PostalCode}'),`;
                     callback(null, property);
                 });
                 const FavePropertyAddressStream = through2.obj(async (property, encoding, callback) => {
-                    postMetaSql += `(${property.postMetaFavePropertyAddressId  }, ${property.postId}, 'fave_property_address', '${property.streetAddress}'),`;
+                    postMetaSql += `(${property.postMetaFavePropertyAddressId}, ${property.postId}, 'fave_property_address', '${property.streetAddress}'),`;
                     callback(null, property);
                 });
                 const FavePropertyMapAddressStream = through2.obj(async (property, encoding, callback) => {
-                    postMetaSql += `(${property.postMetaFavePropertyMapAddressId  }, ${property.postId}, 'fave_property_map_address', '${property.FullAddress}'),`;
+                    postMetaSql += `(${property.postMetaFavePropertyMapAddressId}, ${property.postId}, 'fave_property_map_address', '${property.FullAddress}'),`;
                     callback(null, property);
                 });
                 const FavePropertyYearStream = through2.obj(async (property, encoding, callback) => {
-                    postMetaSql += `(${property.postMetaFavePropertyYearId  }, ${property.postId}, 'fave_property_year', '${property.YearBuilt}'),`;
+                    postMetaSql += `(${property.postMetaFavePropertyYearId}, ${property.postId}, 'fave_property_year', '${property.YearBuilt}'),`;
                     callback(null, property);
                 });
                 const FavePropertyGarageStream = through2.obj(async (property, encoding, callback) => {
-                    postMetaSql += `(${property.postMetaFavePropertyGarageId  }, ${property.postId}, 'fave_property_garage', '${property.GarageSpaces}'),`;
+                    postMetaSql += `(${property.postMetaFavePropertyGarageId}, ${property.postId}, 'fave_property_garage', '${property.GarageSpaces}'),`;
                     callback(null, property);
                 });
                 const FavePropertyBathroomsStream = through2.obj(async (property, encoding, callback) => {
-                    postMetaSql += `(${property.postMetaFavePropertyBathroomsId  }, ${property.postId}, 'fave_property_bathrooms', '${property.BathsTotal}'),`;
+                    postMetaSql += `(${property.postMetaFavePropertyBathroomsId}, ${property.postId}, 'fave_property_bathrooms', '${property.BathsTotal}'),`;
                     callback(null, property);
                 });
                 const FavePropertyBedroomsStream = through2.obj(async (property, encoding, callback) => {
-                    postMetaSql += `(${property.postMetaFavePropertyBedroomsId  }, ${property.postId}, 'fave_property_bedrooms', '${property.BedsTotal}'),`;
+                    postMetaSql += `(${property.postMetaFavePropertyBedroomsId}, ${property.postId}, 'fave_property_bedrooms', '${property.BedsTotal}'),`;
                     callback(null, property);
                 });
                 const FavePropertySizePrefixStream = through2.obj(async (property, encoding, callback) => {
-                    postMetaSql += `(${property.postMetaFavePropertySizePrefixId  }, ${property.postId}, 'fave_property_size_prefix', 'Sq Ft'),`;
+                    postMetaSql += `(${property.postMetaFavePropertySizePrefixId}, ${property.postId}, 'fave_property_size_prefix', 'Sq Ft'),`;
                     callback(null, property);
                 });
                 const FavePropertySizeStream = through2.obj(async (property, encoding, callback) => {
-                    postMetaSql += `(${property.postMetaFavePropertySizeId  }, ${property.postId}, 'fave_property_size', '${property.SqFtTotal}'),`;
+                    postMetaSql += `(${property.postMetaFavePropertySizeId}, ${property.postId}, 'fave_property_size', '${property.SqFtTotal}'),`;
                     callback(null, property);
                 });
                 const FavePropertyPriceStream = through2.obj(async (property, encoding, callback) => {
-                    postMetaSql += `(${property.postMetaFavePropertyPriceId  }, ${property.postId}, 'fave_property_price', '${property.ListPrice}'),`;
+                    postMetaSql += `(${property.postMetaFavePropertyPriceId}, ${property.postId}, 'fave_property_price', '${property.ListPrice}'),`;
+                    callback(null, property);
+                });
+                const GeneratePropertyPostStream = through2.obj(async (property, encoding, callback) => {
+                    postSql += `(${property.postId}, 1,'${date}', '${utcDate}', '${property.PublicRemarks}', '${property.streetAddress}', '', 'draft', 'closed', '${property.MLSNumber}', '${date}', '${utcDate}', '', 'https://www.ccpowerhouseproperties.com/?post_type=property&p=${postId}', 'property', ''),`;
+                    callback(null, property);
+                });
+                const GeneratePropertyImagePostsStream = through2.obj(async (property, encoding, callback) => {
+                    for (let index = 0; index < property.PhotoCount; index++) {
+                        // here we want to generate posts for each image with an assumed name and location
+                        // the images will be uploaded seperately to blob storage
+                        postId++;
+                        postSql += `(${postId}, 1,'${date}', '${utcDate}', '${property.PublicRemarks}', '${property.streetAddress}', '', 'inherit', 'closed', '${property.MLSNumber}', '${date}', '${utcDate}', '', 'https://gchs.org/wp-content/uploads/Image-Coming-Soon-Placeholder.png', 'attachment', 'image/jpeg'),`;
+                        // is this the first image?  If so, it's our thumbnail
+                        if (index === 0) {
+                            postMetaId++;
+                            postMetaSql += `(${postMetaId}, ${property.postId}, '_thumbnail_id', '${postId}'),`;
+                        }
+
+                        postMetaId++;
+                        postMetaSql += `(${postMetaId}, ${property.postId}, 'fave_property_images', '${postId}'),`;
+                        //now associate the image to the property post
+                    }
                     callback(null, property);
                 });
 
 
-                let postSql = "INSERT INTO wp_posts (ID, post_author, post_date, post_date_gmt, post_content, post_title, post_excerpt, post_status, comment_status, ping_status, post_name, post_modified, post_modified_gmt, post_parent, guid, post_type) VALUES ";
+                let postSql = "INSERT INTO wp_posts (ID, post_author, post_date, post_date_gmt, post_content, post_title, post_excerpt, post_status, comment_status, ping_status, post_name, post_modified, post_modified_gmt, post_parent, guid, post_type, post_mime_type) VALUES ";
                 let postMetaSql = "INSERT INTO wp_postmeta (meta_id, post_id, meta_key, meta_value) VALUES ";
                 let termRelationshipsSql = "INSERT INTO wp_term_relationships (object_id, term_taxonomy_id) VALUES ";
                 const date = moment().format("YYYY-MM-DD HH:MM:SS");
@@ -271,10 +292,12 @@ module.exports = {
                         .pipe(determineStateStream)
                         .pipe(determineCountyStream)
                         .pipe(determinePropertyTypeStream)                      // TODO: this needs to be primed for one type (For Sale) and relationship updated
+                        .pipe(GeneratePropertyPostStream)
+                        .pipe(GeneratePropertyImagePostsStream)
                         .pipe(favePropertyMapStream)
                         .pipe(favePropertyMapStreetViewStream)
                         .pipe(favePropertyIdStream)
-                        .pipe(GeoLocationLongStream) 
+                        .pipe(GeoLocationLongStream)
                         .pipe(GeoLocationLatStream)
                         .pipe(FavePropertyLocationStream)
                         .pipe(FavePropertyZipStream)
@@ -291,13 +314,12 @@ module.exports = {
                             validCounter++;
                             process.stdout.write('\x1b[32m.\x1b[0m');
                             // console.log(property);
-                            postSql += `(${property.postId}, 1,'${date}', '${utcDate}', '${property.PublicRemarks}', '${property.streetAddress}', '', 'draft', 'closed', '${property.MLSNumber}', '${date}', '${utcDate}', '', 'https://www.ccpowerhouseproperties.com/?post_type=property&p=${postId}', 'property'),`;
                         })
                         .on('finish', () => {
                             process.stdout.write("Done!");
                             console.log();
                             context.broker.logger.info(`Recieved ${validCounter} valid properties from ${this.limit} received.`)
-                            context.broker.logger.info(postMetaSql.slice(0, -1));
+                            // context.broker.logger.info(postSql.slice(0, -1));
 
                         });
 
