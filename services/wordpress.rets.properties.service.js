@@ -253,7 +253,7 @@ module.exports = {
                     callback(null, property);
                 });
                 const GeneratePropertyPostStream = through2.obj(async (property, encoding, callback) => {
-                    postSql += `(${property.postId}, 1,'${date}', '${utcDate}', '${property.PublicRemarks}', '${property.streetAddress}', '', 'draft', 'closed', '${property.MLSNumber}', '${date}', '${utcDate}', '', 'https://www.ccpowerhouseproperties.com/?post_type=property&p=${postId}', 'property', ''),`;
+                    postSql += `(${property.postId}, 1,'${date}', '${utcDate}', '${property.PublicRemarks}', '${property.streetAddress}', '', 'draft', 'closed','closed', '${property.MLSNumber}','', '', '${date}', '${utcDate}', 0, 'https://www.ccpowerhouseproperties.com/?post_type=property&p=${postId}', 'property', ''),`;
                     callback(null, property);
                 });
                 const GeneratePropertyImagePostsStream = through2.obj(async (property, encoding, callback) => {
@@ -261,7 +261,7 @@ module.exports = {
                         // here we want to generate posts for each image with an assumed name and location
                         // the images will be uploaded seperately to blob storage
                         postId++;
-                        postSql += `(${postId}, 1,'${date}', '${utcDate}', '${property.PublicRemarks}', '${property.streetAddress}', '', 'inherit', 'closed', '${property.MLSNumber}', '${date}', '${utcDate}', '', 'https://gchs.org/wp-content/uploads/Image-Coming-Soon-Placeholder.png', 'attachment', 'image/jpeg'),`;
+                        postSql += `(${postId}, 1,'${date}', '${utcDate}', '${property.PublicRemarks}', '${property.streetAddress}', '', 'inherit', 'closed','closed', '${property.MLSNumber}','', '', '${date}', '${utcDate}', 0, 'https://gchs.org/wp-content/uploads/Image-Coming-Soon-Placeholder.png', 'attachment', 'image/jpeg'),`;
                         // is this the first image?  If so, it's our thumbnail
                         if (index === 0) {
                             postMetaId++;
@@ -276,11 +276,12 @@ module.exports = {
                 });
 
 
-                let postSql = "INSERT INTO wp_posts (ID, post_author, post_date, post_date_gmt, post_content, post_title, post_excerpt, post_status, comment_status, ping_status, post_name, post_modified, post_modified_gmt, post_parent, guid, post_type, post_mime_type) VALUES ";
+                let postSql = "INSERT INTO wp_posts (ID, post_author, post_date, post_date_gmt, post_content, post_title, post_excerpt, post_status, comment_status, ping_status, post_name,to_ping, pinged, post_modified, post_modified_gmt, post_parent, guid, post_type, post_mime_type) VALUES ";
                 let postMetaSql = "INSERT INTO wp_postmeta (meta_id, post_id, meta_key, meta_value) VALUES ";
                 let termRelationshipsSql = "INSERT INTO wp_term_relationships (object_id, term_taxonomy_id) VALUES ";
-                const date = moment().format("YYYY-MM-DD HH:MM:SS");
-                const utcDate = moment().utc().format("YYYY-MM-DD HH:MM:SS");
+                // TODO: Gotta figure out how to make these valid dates for mysql
+                const date = moment().unix();
+                const utcDate = moment().utc().unix();
 
                 return new Promise((resolve, reject) => {
                     const searchResults = this.retsClient.search.stream.query("Property", "Listing", `(LastChangeTimestamp=${this.lastChangeTimeStamp}+),(PropertyType=RES,MUL,LOT,FRM,COM),(Status=A)`, { offset: ctx.service.offset, limit: ctx.service.limit, select: "PhotoCount,Matrix_Unique_ID,PropertyType,ListPrice,SqFtTotal,LotSize,BedsTotal,BathsTotal,GarageSpaces,YearBuilt,MLSNumber,City,CountyOrParish,StreetNumber,StreetDirPrefix,StreetName,StreetSuffix,PostalCode,StateOrProvince,Style,PublicRemarks" });
@@ -315,12 +316,12 @@ module.exports = {
                             process.stdout.write('\x1b[32m.\x1b[0m');
                             // console.log(property);
                         })
-                        .on('finish', () => {
+                        .on('finish', async () => {
                             process.stdout.write("Done!");
                             console.log();
                             context.broker.logger.info(`Recieved ${validCounter} valid properties from ${this.limit} received.`)
                             // context.broker.logger.info(postSql.slice(0, -1));
-
+                            await this.uploadProperties(context, postSql);
                         });
 
                     resolve('');
@@ -340,6 +341,24 @@ module.exports = {
 	 * Methods
 	 */
     methods: {
+        async uploadProperties(ctx, postSql) {
+            let context = ctx;
+            this.logger.info("Bulk uploading properties...");
+            let sql = postSql.slice(0, -1);
+            return new Promise((resolve, reject) => {
+                // this.pool.query(sql, async function (error, results, fields) {
+                //     if (error) {
+                //         context.broker.logger.error(`Error bulk uploading properties: ${error}`);
+                //         reject(error);
+                //     };
+                //     context.broker.logger.info("Done!");
+                //     resolve();
+                // });
+                context.broker.logger.info("Done!");
+                resolve();
+            });
+
+        },
         async login(ctx) {
             let outputFields = this.outputFields;
             this.retsClient = await rets.getAutoLogoutClient(this.clientSettings, async function (client) {
